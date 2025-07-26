@@ -1,0 +1,8 @@
+{
+  "name": "cell_surge",
+  "packageManager": "yarn@4.9.1",
+  "devDependencies": {
+    "syncyarnlock": "1.0.19",
+    "synp": "1.9.14"
+  }
+}

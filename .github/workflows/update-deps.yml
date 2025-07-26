@@ -1,0 +1,72 @@
+name: Export Dependencies
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  export-dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. Check out your code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Set up Conda (via setup-miniconda) so we have `conda run`
+      - name: Setup Miniconda
+        uses: conda-incubator/setup-miniconda@v2
+        with:
+          miniconda-version: 'latest'
+          auto-update-conda: true
+          use-mamba: true
+          python-version: 3.10
+          environment-file: environment.yml   # creates sc-explorer env if present
+          activate-environment: sc-explorer
+          auto-activate-base: false
+
+      # 3. Export Python dependencies
+      - name: Install & export Python deps
+        shell: bash
+        run: |
+          if [ -f environment.yml ]; then
+            # Export the fully resolved Conda environment
+            conda run -n sc-explorer conda env export --no-builds > exported-environment.yml
+          elif [ -f requirements.txt ]; then
+            # Fallback to pip freeze if you use requirements.txt
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+            pip freeze > exported-requirements.txt
+          else
+            echo "No environment.yml or requirements.txt found; skipping Python export"
+          fi
+
+      # 4. Set up Node.js and Yarn cache
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'yarn'
+          cache-dependency-path: yarn.lock
+
+      # 5. Install & export Node/Yarn dependencies
+      - name: Install & export Node deps
+        shell: bash
+        run: |
+          if [ -f package.json ]; then
+            yarn install --frozen-lockfile
+            yarn list --depth=0 --json > exported-dependencies.json
+          else
+            echo "No package.json found; skipping Node export"
+          fi
+
+      # 6. Upload whatever was produced
+      - name: Upload dependency exports
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependencies-exports
+          path: |
+            exported-environment.yml
+            exported-requirements.txt
+            exported-dependencies.json
